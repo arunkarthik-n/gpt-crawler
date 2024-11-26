@@ -21,6 +21,10 @@ RUN npm install --ignore-scripts \
 # Copy source files
 COPY . .
 
+# Create start script for Xvfb
+RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1280x1024x24 &\nexport DISPLAY=:99\nexec "$@"' > start_xvfb_and_run_cmd.sh \
+    && chmod +x start_xvfb_and_run_cmd.sh
+
 # Create tsconfig.json if it doesn't exist
 RUN if [ ! -f tsconfig.json ]; then \
     echo '{ \
@@ -45,6 +49,9 @@ RUN if [ ! -f tsconfig.json ]; then \
     }' > tsconfig.json; \
     fi
 
+# Install Xvfb
+RUN apt-get update && apt-get install -y xvfb
+
 # Set proper permissions
 RUN chown -R myuser:myuser /usr/src/app
 
@@ -52,4 +59,4 @@ RUN chown -R myuser:myuser /usr/src/app
 USER myuser
 
 # Run the application
-CMD ["sh", "-c", "./start_xvfb_and_run_cmd.sh && npx ts-node src/server.ts"]
+CMD ["./start_xvfb_and_run_cmd.sh", "npx", "ts-node", "src/server.ts"]
