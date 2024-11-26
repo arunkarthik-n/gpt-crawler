@@ -14,9 +14,9 @@ COPY package*.json ./
 ENV HUSKY=0
 ENV HUSKY_SKIP_INSTALL=1
 
-# Install dependencies including Apify's tsconfig
+# Install dependencies
 RUN npm install --ignore-scripts \
-    && npm install typescript ts-node zod @types/node @apify/tsconfig
+    && npm install typescript ts-node zod @types/node
 
 # Copy source files
 COPY . .
@@ -25,27 +25,30 @@ COPY . .
 RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1280x1024x24 &\nexport DISPLAY=:99\nexec "$@"' > start_xvfb_and_run_cmd.sh \
     && chmod +x start_xvfb_and_run_cmd.sh
 
-# Create tsconfig.json that extends Apify's config
+# Create standalone tsconfig.json
 RUN echo '{ \
-    "extends": "@apify/tsconfig", \
     "compilerOptions": { \
-        "module": "ESNext", \
-        "target": "ESNext", \
+        "target": "ES2022", \
+        "module": "NodeNext", \
+        "lib": ["ES2022"], \
+        "moduleResolution": "NodeNext", \
         "outDir": "dist", \
         "rootDir": "src", \
+        "strict": true, \
         "noImplicitAny": false, \
         "esModuleInterop": true, \
-        "allowJs": true, \
-        "moduleResolution": "node", \
         "resolveJsonModule": true, \
         "skipLibCheck": true, \
+        "forceConsistentCasingInFileNames": true, \
+        "allowJs": true, \
         "allowImportingTsExtensions": true \
     }, \
     "ts-node": { \
         "esm": true, \
         "experimentalSpecifierResolution": "node" \
     }, \
-    "include": ["src/**/*"] \
+    "include": ["src/**/*"], \
+    "exclude": ["node_modules"] \
 }' > tsconfig.json
 
 # Install Xvfb
@@ -57,5 +60,5 @@ RUN chown -R myuser:myuser /usr/src/app
 # Switch back to non-root user
 USER myuser
 
-# Run the application using ts-node with proper flags
-CMD ["./start_xvfb_and_run_cmd.sh", "npx", "ts-node", "--esm", "src/server.ts"]
+# Run the application with Node.js ESM support
+CMD ["./start_xvfb_and_run_cmd.sh", "node", "--loader", "ts-node/esm", "src/server.ts"]
