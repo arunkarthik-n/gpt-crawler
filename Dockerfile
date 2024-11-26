@@ -4,6 +4,8 @@ FROM apify/actor-node-playwright-chrome:18 AS builder
 COPY --chown=myuser package*.json ./
 # Delete the prepare script
 RUN npm pkg delete scripts.prepare
+# Install TypeScript globally in the builder stage
+RUN npm install -g typescript
 # Install all dependencies
 RUN npm install --audit=false
 # Copy source files
@@ -17,7 +19,7 @@ FROM apify/actor-node-playwright-chrome:18
 COPY --from=builder --chown=myuser /home/myuser/dist ./dist
 # Copy package files
 COPY --chown=myuser package*.json ./
-# Install ALL required dependencies (removed --omit=dev)
+# Install dependencies
 RUN npm pkg delete scripts.prepare \
     && npm --quiet set progress=false \
     && npm install \
