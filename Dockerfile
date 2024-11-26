@@ -4,11 +4,8 @@ FROM apify/actor-node-playwright-chrome:18
 # Set working directory
 WORKDIR /usr/src/app
 
-# Install dependencies first (better caching)
+# Copy package files
 COPY package*.json ./
-
-# Delete prepare script
-RUN npm pkg delete scripts.prepare
 
 # Install dependencies globally to ensure they're in PATH
 RUN npm install -g typescript ts-node
@@ -54,5 +51,5 @@ RUN chown -R myuser:myuser .
 # Switch to non-root user
 USER myuser
 
-# Run the application
-CMD ./start_xvfb_and_run_cmd.sh && NODE_OPTIONS="--experimental-specifier-resolution=node --loader ts-node/esm" ts-node src/server.ts
+# Run the application using JSON array format for CMD (addressing the warning)
+CMD ["sh", "-c", "./start_xvfb_and_run_cmd.sh && NODE_OPTIONS='--experimental-specifier-resolution=node --loader ts-node/esm' ts-node src/server.ts"]
