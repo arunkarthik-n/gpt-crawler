@@ -23,8 +23,8 @@ COPY --chown=myuser . ./
 # Create a standalone tsconfig.json
 RUN echo '{ \
     "compilerOptions": { \
-        "module": "CommonJS", \
-        "target": "ES2020", \
+        "module": "ESNext", \
+        "target": "ESNext", \
         "outDir": "dist", \
         "rootDir": "src", \
         "noImplicitAny": false, \
@@ -32,10 +32,15 @@ RUN echo '{ \
         "allowJs": true, \
         "moduleResolution": "node", \
         "resolveJsonModule": true, \
-        "skipLibCheck": true \
+        "skipLibCheck": true, \
+        "allowImportingTsExtensions": true \
+    }, \
+    "ts-node": { \
+        "esm": true, \
+        "experimentalSpecifierResolution": "node" \
     }, \
     "include": ["src/**/*"] \
 }' > tsconfig.json
 
-# Run with ts-node and explicitly set the tsconfig path
-CMD ./start_xvfb_and_run_cmd.sh && npx ts-node -P tsconfig.json src/server.ts
+# Run with ts-node with ESM flags
+CMD ./start_xvfb_and_run_cmd.sh && NODE_OPTIONS="--loader ts-node/esm" npx ts-node --esm src/server.ts
