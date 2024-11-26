@@ -1,15 +1,21 @@
 # Base image
 FROM apify/actor-node-playwright-chrome:18
 
-# Copy package files
-COPY --chown=myuser package*.json ./
+# Set working directory
+WORKDIR /usr/src/app
+
+# Install dependencies first (better caching)
+COPY package*.json ./
 
 # Delete prepare script
 RUN npm pkg delete scripts.prepare
 
-# Install dependencies including TypeScript, ts-node, and zod
+# Install dependencies globally to ensure they're in PATH
+RUN npm install -g typescript ts-node
+
+# Install project dependencies
 RUN npm install --quiet \
-    && npm install typescript ts-node zod @types/node \
+    && npm install --save-dev typescript ts-node zod @types/node \
     && echo "Installed NPM packages:" \
     && (npm list --all || true) \
     && echo "Node.js version:" \
@@ -18,9 +24,9 @@ RUN npm install --quiet \
     && npm --version
 
 # Copy source files
-COPY --chown=myuser . ./
+COPY . .
 
-# Create a standalone tsconfig.json
+# Create tsconfig.json
 RUN echo '{ \
     "compilerOptions": { \
         "module": "ESNext", \
@@ -42,5 +48,11 @@ RUN echo '{ \
     "include": ["src/**/*"] \
 }' > tsconfig.json
 
-# Run with ts-node with ESM flags
-CMD ./start_xvfb_and_run_cmd.sh && NODE_OPTIONS="--loader ts-node/esm" npx ts-node --esm src/server.ts
+# Set proper permissions
+RUN chown -R myuser:myuser .
+
+# Switch to non-root user
+USER myuser
+
+# Run the application
+CMD ./start_xvfb_and_run_cmd.sh && NODE_OPTIONS="--experimental-specifier-resolution=node --loader ts-node/esm" ts-node src/server.ts
