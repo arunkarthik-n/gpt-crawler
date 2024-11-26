@@ -9,7 +9,7 @@ RUN npm install --audit=false typescript @types/node
 # Copy source files
 COPY --chown=myuser . ./
 # Build the project using local TypeScript
-RUN npx tsc
+RUN ./node_modules/.bin/tsc
 
 # Final stage
 FROM apify/actor-node-playwright-chrome:18
