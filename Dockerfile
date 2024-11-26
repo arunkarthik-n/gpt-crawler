@@ -14,9 +14,9 @@ COPY package*.json ./
 ENV HUSKY=0
 ENV HUSKY_SKIP_INSTALL=1
 
-# Install dependencies
+# Install dependencies including Apify's tsconfig
 RUN npm install --ignore-scripts \
-    && npm install typescript ts-node zod @types/node
+    && npm install typescript ts-node zod @types/node @apify/tsconfig
 
 # Copy source files
 COPY . .
@@ -25,29 +25,28 @@ COPY . .
 RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1280x1024x24 &\nexport DISPLAY=:99\nexec "$@"' > start_xvfb_and_run_cmd.sh \
     && chmod +x start_xvfb_and_run_cmd.sh
 
-# Create tsconfig.json if it doesn't exist
-RUN if [ ! -f tsconfig.json ]; then \
-    echo '{ \
-        "compilerOptions": { \
-            "module": "ESNext", \
-            "target": "ESNext", \
-            "outDir": "dist", \
-            "rootDir": "src", \
-            "noImplicitAny": false, \
-            "esModuleInterop": true, \
-            "allowJs": true, \
-            "moduleResolution": "node", \
-            "resolveJsonModule": true, \
-            "skipLibCheck": true, \
-            "allowImportingTsExtensions": true \
-        }, \
-        "ts-node": { \
-            "esm": true, \
-            "experimentalSpecifierResolution": "node" \
-        }, \
-        "include": ["src/**/*"] \
-    }' > tsconfig.json; \
-    fi
+# Create tsconfig.json that extends Apify's config
+RUN echo '{ \
+    "extends": "@apify/tsconfig", \
+    "compilerOptions": { \
+        "module": "ESNext", \
+        "target": "ESNext", \
+        "outDir": "dist", \
+        "rootDir": "src", \
+        "noImplicitAny": false, \
+        "esModuleInterop": true, \
+        "allowJs": true, \
+        "moduleResolution": "node", \
+        "resolveJsonModule": true, \
+        "skipLibCheck": true, \
+        "allowImportingTsExtensions": true \
+    }, \
+    "ts-node": { \
+        "esm": true, \
+        "experimentalSpecifierResolution": "node" \
+    }, \
+    "include": ["src/**/*"] \
+}' > tsconfig.json
 
 # Install Xvfb
 RUN apt-get update && apt-get install -y xvfb
@@ -58,5 +57,5 @@ RUN chown -R myuser:myuser /usr/src/app
 # Switch back to non-root user
 USER myuser
 
-# Run the application
-CMD ["./start_xvfb_and_run_cmd.sh", "npx", "ts-node", "src/server.ts"]
+# Run the application using ts-node with proper flags
+CMD ["./start_xvfb_and_run_cmd.sh", "npx", "ts-node", "--esm", "src/server.ts"]
