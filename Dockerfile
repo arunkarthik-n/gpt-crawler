@@ -7,9 +7,9 @@ COPY --chown=myuser package*.json ./
 # Delete prepare script
 RUN npm pkg delete scripts.prepare
 
-# Install dependencies including TypeScript, ts-node, zod and Apify's TypeScript config
+# Install dependencies including TypeScript, ts-node, and zod
 RUN npm install --quiet \
-    && npm install typescript ts-node zod @types/node @apify/tsconfig \
+    && npm install typescript ts-node zod @types/node \
     && echo "Installed NPM packages:" \
     && (npm list --all || true) \
     && echo "Node.js version:" \
@@ -20,9 +20,8 @@ RUN npm install --quiet \
 # Copy source files
 COPY --chown=myuser . ./
 
-# Create a basic tsconfig.json
+# Create a standalone tsconfig.json
 RUN echo '{ \
-    "extends": "@apify/tsconfig", \
     "compilerOptions": { \
         "module": "CommonJS", \
         "target": "ES2020", \
@@ -30,10 +29,13 @@ RUN echo '{ \
         "rootDir": "src", \
         "noImplicitAny": false, \
         "esModuleInterop": true, \
-        "allowJs": true \
+        "allowJs": true, \
+        "moduleResolution": "node", \
+        "resolveJsonModule": true, \
+        "skipLibCheck": true \
     }, \
     "include": ["src/**/*"] \
 }' > tsconfig.json
 
-# Run with ts-node
-CMD ./start_xvfb_and_run_cmd.sh && npx ts-node src/server.ts
+# Run with ts-node and explicitly set the tsconfig path
+CMD ./start_xvfb_and_run_cmd.sh && npx ts-node -P tsconfig.json src/server.ts
