@@ -1,64 +1,54 @@
-# Base image
+# Specify the base Docker image. You can read more about
+# the available images at https://crawlee.dev/docs/guides/docker-images
+# You can also use any other image from Docker Hub.
+FROM apify/actor-node-playwright-chrome:18 AS builder
+
+# Copy just package.json and package-lock.json
+# to speed up the build using Docker layer cache.
+COPY --chown=myuser package*.json ./
+
+# Delete the prepare script. It's not needed in the final image.
+RUN npm pkg delete scripts.prepare
+
+# Install all dependencies. Don't audit to speed up the installation.
+RUN npm install --include=dev --audit=false
+
+# Next, copy the source files using the user set
+# in the base image.
+COPY --chown=myuser . ./
+
+# Install all dependencies and build the project.
+# Don't audit to speed up the installation.
+RUN npm run build
+
+# Create final image
 FROM apify/actor-node-playwright-chrome:18
 
-# Set working directory
-WORKDIR /usr/src/app
+# Copy only built JS files from builder image
+COPY --from=builder --chown=myuser /home/myuser/dist ./dist
 
-# Switch to root to handle installations
-USER root
+# Copy just package.json and package-lock.json
+# to speed up the build using Docker layer cache.
+COPY --chown=myuser package*.json ./
 
-# Copy package files
-COPY package*.json ./
+# Install NPM packages, skip optional and development dependencies to
+# keep the image small. Avoid logging too much and print the dependency
+# tree for debugging
+RUN npm pkg delete scripts.prepare \
+    && npm --quiet set progress=false \
+    && npm install --omit=dev --omit=optional \
+    && echo "Installed NPM packages:" \
+    && (npm list --omit=dev --all || true) \
+    && echo "Node.js version:" \
+    && node --version \
+    && echo "NPM version:" \
+    && npm --version
 
-# Prevent husky installation during npm install
-ENV HUSKY=0
-ENV HUSKY_SKIP_INSTALL=1
+# Next, copy the remaining files and directories with the source code.
+# Since we do this after NPM install, quick build will be really fast
+# for most source file changes.
+COPY --chown=myuser . ./
 
-# Install dependencies
-RUN npm install --ignore-scripts \
-    && npm install typescript ts-node zod @types/node
-
-# Copy source files
-COPY . .
-
-# Create start script for Xvfb
-RUN echo '#!/bin/bash\nXvfb :99 -screen 0 1280x1024x24 &\nexport DISPLAY=:99\nexec "$@"' > start_xvfb_and_run_cmd.sh \
-    && chmod +x start_xvfb_and_run_cmd.sh
-
-# Create standalone tsconfig.json
-RUN echo '{ \
-    "compilerOptions": { \
-        "target": "ES2022", \
-        "module": "NodeNext", \
-        "lib": ["ES2022"], \
-        "moduleResolution": "NodeNext", \
-        "outDir": "dist", \
-        "rootDir": "src", \
-        "strict": true, \
-        "noImplicitAny": false, \
-        "esModuleInterop": true, \
-        "resolveJsonModule": true, \
-        "skipLibCheck": true, \
-        "forceConsistentCasingInFileNames": true, \
-        "allowJs": true, \
-        "allowImportingTsExtensions": true \
-    }, \
-    "ts-node": { \
-        "esm": true, \
-        "experimentalSpecifierResolution": "node" \
-    }, \
-    "include": ["src/**/*"], \
-    "exclude": ["node_modules"] \
-}' > tsconfig.json
-
-# Install Xvfb
-RUN apt-get update && apt-get install -y xvfb
-
-# Set proper permissions
-RUN chown -R myuser:myuser /usr/src/app
-
-# Switch back to non-root user
-USER myuser
-
-# Run the application with Node.js ESM support
-CMD ["./start_xvfb_and_run_cmd.sh", "node", "--loader", "ts-node/esm", "src/server.ts"]
+# Run the image. If you know you won't need headful browsers,
+# you can remove the XVFB start script for a micro perf gain.
+CMD ./start_xvfb_and_run_cmd.sh && npm run start:prod --silent
