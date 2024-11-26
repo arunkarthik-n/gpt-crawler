@@ -1,54 +1,33 @@
-# Specify the base Docker image. You can read more about
-# the available images at https://crawlee.dev/docs/guides/docker-images
-# You can also use any other image from Docker Hub.
+# Builder stage
 FROM apify/actor-node-playwright-chrome:18 AS builder
-
-# Copy just package.json and package-lock.json
-# to speed up the build using Docker layer cache.
+# Copy package files
 COPY --chown=myuser package*.json ./
-
-# Delete the prepare script. It's not needed in the final image.
+# Delete the prepare script
 RUN npm pkg delete scripts.prepare
-
-# Install all dependencies. Don't audit to speed up the installation.
-RUN npm install --include=dev --audit=false
-
-# Next, copy the source files using the user set
-# in the base image.
+# Install all dependencies
+RUN npm install --audit=false
+# Copy source files
 COPY --chown=myuser . ./
-
-# Install all dependencies and build the project.
-# Don't audit to speed up the installation.
+# Build the project
 RUN npm run build
 
-# Create final image
+# Final stage
 FROM apify/actor-node-playwright-chrome:18
-
-# Copy only built JS files from builder image
+# Copy built files from builder
 COPY --from=builder --chown=myuser /home/myuser/dist ./dist
-
-# Copy just package.json and package-lock.json
-# to speed up the build using Docker layer cache.
+# Copy package files
 COPY --chown=myuser package*.json ./
-
-# Install NPM packages, skip optional and development dependencies to
-# keep the image small. Avoid logging too much and print the dependency
-# tree for debugging
+# Install ALL required dependencies (removed --omit=dev)
 RUN npm pkg delete scripts.prepare \
     && npm --quiet set progress=false \
-    && npm install --omit=dev --omit=optional \
+    && npm install \
     && echo "Installed NPM packages:" \
-    && (npm list --omit=dev --all || true) \
+    && (npm list --all || true) \
     && echo "Node.js version:" \
     && node --version \
     && echo "NPM version:" \
     && npm --version
-
-# Next, copy the remaining files and directories with the source code.
-# Since we do this after NPM install, quick build will be really fast
-# for most source file changes.
+# Copy remaining files
 COPY --chown=myuser . ./
-
-# Run the image. If you know you won't need headful browsers,
-# you can remove the XVFB start script for a micro perf gain.
+# Run the application
 CMD ./start_xvfb_and_run_cmd.sh && npm run start:prod --silent
