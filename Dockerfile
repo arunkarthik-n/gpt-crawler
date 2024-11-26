@@ -7,12 +7,9 @@ WORKDIR /usr/src/app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies globally to ensure they're in PATH
-RUN npm install -g typescript ts-node
-
-# Install project dependencies
+# Install all dependencies at once without global installation
 RUN npm install --quiet \
-    && npm install --save-dev typescript ts-node zod @types/node \
+    && npm install --save-dev typescript@latest ts-node@latest zod@latest @types/node@latest \
     && echo "Installed NPM packages:" \
     && (npm list --all || true) \
     && echo "Node.js version:" \
@@ -51,5 +48,5 @@ RUN chown -R myuser:myuser .
 # Switch to non-root user
 USER myuser
 
-# Run the application using JSON array format for CMD (addressing the warning)
-CMD ["sh", "-c", "./start_xvfb_and_run_cmd.sh && NODE_OPTIONS='--experimental-specifier-resolution=node --loader ts-node/esm' ts-node src/server.ts"]
+# Run the application
+CMD ["sh", "-c", "./start_xvfb_and_run_cmd.sh && npx ts-node --esm src/server.ts"]
